@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大和運輸 - 店員専用端末（QR解読）</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        body { font-family: 'Noto Sans JP', sans-serif; background: #0f172a; color: #fff; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1e293b; padding: 20px; border-radius: 12px; }
+        .scanner-box { background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 15px; text-align: center; }
+        video { width: 100%; max-height: 250px; object-fit: cover; }
+        button { background: #2563eb; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        textarea { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #475569; background: #334155; color: #fff; }
+        .result-box { background: #064e3b; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🔒 磯子営業所 店員専用スキャナー</h2>
+        <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 15px;">お客様が持参した保護QRコードを読み取ります。</p>
+
+        <div class="scanner-box">
+            <video id="video" playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+        <button onclick="toggleCamera()">カメラ起動 / 停止</button>
+
+        <div style="margin-top:20px;">
+            <label style="font-size:0.85rem;">暗号コード直接読み取り</label>
+            <textarea id="cipherInput" rows="3" placeholder="YAMATO_SEC::... を貼り付け"></textarea>
+            <button onclick="manualDecrypt()" style="background:#475569; margin-top:5px;">手動復号</button>
+        </div>
+
+        <div id="resultBox" class="result-box" style="display:none;">
+            <h3 style="color:#34d399;">✅ 復号成功</h3>
+            <div id="resultContent" style="margin-top:10px; line-height:1.8;"></div>
+        </div>
+    </div>
+
+    <script>
+        const SECRET_KEY = 5;
+        let videoStream = null;
+        let isScanning = false;
+
+        function decryptData(cipherText) {
+            try {
+                if (!cipherText.startsWith("YAMATO_SEC::")) return null;
+                let rawCipher = cipherText.replace("YAMATO_SEC::", "");
+                let base64 = "";
+                for (let i = 0; i < rawCipher.length; i++) {
+                    base64 += String.fromCharCode(rawCipher.charCodeAt(i) - SECRET_KEY);
+                }
+                return decodeURIComponent(escape(atob(base64)));
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function toggleCamera() {
+            if (isScanning) {
+                stopCamera();
+            } else {
+                try {
+                    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    const video = document.getElementById('video');
+                    video.srcObject = videoStream;
+                    video.play();
+                    isScanning = true;
+                    requestAnimationFrame(scan);
+                } catch (e) {
+                    alert("カメラの起動に失敗しました");
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+            isScanning = false;
+        }
+
+        function scan() {
+            if (!isScanning) return;
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    stopCamera();
+                    showResult(code.data);
+                    return;
+                }
+            }
+            requestAnimationFrame(scan);
+        }
+
+        function manualDecrypt() {
+            const val = document.getElementById('cipherInput').value.trim();
+            if (val) showResult(val);
+        }
+
+        function showResult(cipherText) {
+            const decrypted = decryptData(cipherText);
+            if (decrypted) {
+                document.getElementById('resultContent').innerHTML = decrypted.replace(/\n/g, '<br>');
+                document.getElementById('resultBox').style.display = 'block';
+            } else {
+                alert("復号エラー：無効なコードです");
+            }
+        }
+    </script>
+</body>
+</html>
