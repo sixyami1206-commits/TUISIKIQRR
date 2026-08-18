@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>荷急運輸 - 営業所受付QRスキャナー v2.0</title>
+    <title>荷急運輸 - 営業所QR受付端末 v3.0</title>
     <!-- QRコード読み取り用ライブラリ (Html5Qrcode) -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -67,6 +67,7 @@
         .btn:hover { background: #1d4ed8; }
         .btn-stop { background: #ef4444; }
         .btn-stop:hover { background: #dc2626; }
+        .btn:disabled { background: #94a3b8; cursor: not-allowed; }
 
         #resultArea { margin-top: 15px; }
 
@@ -118,7 +119,7 @@
     <div class="container">
         <header>
             <h1>荷急運輸 営業所QR受付端末</h1>
-            <p>バージョン 2.0（暗号化伝票・配達方法・送料対応版）</p>
+            <p>バージョン 3.0（受付確定時・スプレッドシート自動「1」入力対応版）</p>
         </header>
 
         <div class="scanner-card">
@@ -130,9 +131,12 @@
     </div>
 
     <script>
-        const SECRET_KEY = 5; // 発送サイトと完全に同期させる暗号キー
+        const SECRET_KEY = 5; // 発送サイトと完全同期
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzo6B828MtuhHJBYpsAokFsRq4BQ7rGj4wGdoEQ7ir4yWCqExxkJWteusWVn4-BqUY8gQ/exec";
+
         let html5QrcodeScanner = null;
         let isScanning = false;
+        let currentScannedCode = "";
 
         // 荷急運輸 独自暗号化QRの復号関数
         function decodeNikkyuQRCode(scannedData) {
@@ -141,20 +145,22 @@
             }
 
             try {
-                // 1. "NIKKYU_SEC::" の接頭辞を除去
                 let encryptedBase64 = scannedData.substring(12);
                 let decodedBase64 = "";
                 
-                // 2. シフト暗号の解除
                 for (let i = 0; i < encryptedBase64.length; i++) {
                     decodedBase64 += String.fromCharCode(encryptedBase64.charCodeAt(i) - SECRET_KEY);
                 }
 
-                // 3. Base64デコード（日本語文字化け防止処理含む）
                 const rawText = decodeURIComponent(escape(atob(decodedBase64)));
+
+                // 追跡番号を抽出 (例: "追跡番号: AM100001")
+                let codeMatch = rawText.match(/追跡番号:\s*([A-Z0-9]+)/);
+                let extractedCode = codeMatch ? codeMatch[1] : "";
 
                 return {
                     isNikkyu: true,
+                    code: extractedCode,
                     formatted: rawText
                 };
             } catch (e) {
@@ -164,18 +170,18 @@
         }
 
         function onScanSuccess(decodedText) {
-            // スキャン成功時、一度カメラを一時停止
             stopCamera();
 
             const result = decodeNikkyuQRCode(decodedText);
             const resultArea = document.getElementById('resultArea');
 
             if (result.isNikkyu) {
+                currentScannedCode = result.code;
                 resultArea.innerHTML = `
                     <div class="result-box">
                         <div class="result-title">✅ 荷急運輸 発送伝票読取完了</div>
                         <div class="result-content">${escapeHtml(result.formatted)}</div>
-                        <button class="btn" onclick="acceptShipment()">この内容で受付確定</button>
+                        <button id="acceptBtn" class="btn" onclick="acceptShipment('${result.code}')">この内容で受付確定 (自動でステータス1に変更)</button>
                         <button class="btn" style="background:#64748b; margin-top:6px;" onclick="resetScanner()">続けてスキャン</button>
                     </div>
                 `;
@@ -198,6 +204,37 @@
             }
         }
 
+        async function acceptShipment(code) {
+            const acceptBtn = document.getElementById('acceptBtn');
+            acceptBtn.disabled = true;
+            acceptBtn.innerText = "⏳ スプレッドシート更新中...";
+
+            if (!code) {
+                alert("追跡コードが取得できませんでした。");
+                acceptBtn.disabled = false;
+                acceptBtn.innerText = "この内容で受付確定 (自動でステータス1に変更)";
+                return;
+            }
+
+            try {
+                // GASにPOST送信してB列を「1」に自動書き込み
+                await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: code, status: 1 })
+                });
+
+                alert(`【受付完了】\n追跡コード: ${code}\nスプレッドシートのステータスを「1」に更新しました！`);
+                resetScanner();
+            } catch (err) {
+                console.error("更新エラー:", err);
+                alert("スプレッドシートの更新に失敗しました。");
+                acceptBtn.disabled = false;
+                acceptBtn.innerText = "この内容で受付確定 (自動でステータス1に変更)";
+            }
+        }
+
         function toggleCamera() {
             if (isScanning) {
                 stopCamera();
@@ -211,7 +248,7 @@
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
             html5QrcodeScanner.start(
-                { facingMode: "environment" }, // 背面カメラを優先
+                { facingMode: "environment" },
                 config,
                 onScanSuccess
             ).then(() => {
@@ -240,14 +277,10 @@
             startCamera();
         }
 
-        function acceptShipment() {
-            alert("受付データを取り込みました。発送手続きを完了します。");
-            resetScanner();
-        }
-
         function escapeHtml(str) {
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
 </html>
+
