@@ -2,64 +2,59 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>荷急運輸 - 完全版管理端末</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>荷急運輸 管理端末 v8.0</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #0f172a; --accent: #2563eb; --danger: #ef4444; --warning: #f59e0b; --accept: #16a34a; }
-        body { background: #f8fafc; padding: 15px; font-family: sans-serif; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .card-title { font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; }
-        .btn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
-        .btn { border: none; padding: 12px; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .btn-accept { background: var(--accept); font-size: 1.1rem; }
-        .btn-sub { background: #475569; }
-        .btn-warn { background: var(--warning); color: #000; }
-        .btn-danger { background: var(--danger); }
-        .input-control { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; }
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; }
-        #scanResult { margin-top: 15px; border-top: 2px solid #eee; padding-top: 15px; }
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        .card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .title { font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
+        button { padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .scan-res { background: #eef; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>統合管理端末 v7.0（受付機能固定版）</h1>
-        
-        <!-- 1. QRスキャナー -->
-        <div class="card">
-            <div class="card-title">📷 QR受付・スキャナー</div>
-            <div id="reader"></div>
-            <button id="camBtn" class="btn btn-sub" style="width:100%; margin-top:10px;" onclick="toggleCam()">カメラ起動</button>
-            <div id="scanResult"></div>
-        </div>
+    <div id="reader" style="width: 100%;"></div>
+    
+    <div class="card">
+        <div class="title">📷 伝票受付</div>
+        <button id="camBtn" onclick="toggleCam()" style="width:100%; background:#2563eb;">カメラ起動</button>
+        <div id="scanResult" style="display:none;" class="scan-res"></div>
+    </div>
 
-        <!-- 2. 特定コード操作 -->
-        <div class="card">
-            <div class="card-title">🎯 特定コード操作</div>
-            <input type="text" id="targetCode" class="input-control" placeholder="追跡番号を入力">
-            <div class="btn-grid">
-                <button class="btn btn-sub" onclick="sendSingle(2, '輸送中')">🚚 輸送</button>
-                <button class="btn btn-sub" onclick="sendSingle(3, '配達店到着')">🏢 到着</button>
-                <button class="btn btn-sub" onclick="sendSingle(4, '配達中')">🛵 配達中</button>
-                <button class="btn btn-sub" onclick="sendSingle(5, '配達済み')">✅ 配達済</button>
-                <button class="btn btn-warn" onclick="sendSingle(92, '宛先問題')">❓ 宛先問題</button>
-                <button class="btn btn-warn" onclick="sendSingle(6, '不在')">🏠 不在</button>
-                <button class="btn btn-warn" onclick="sendSingle(93, 'サイズ問題')">📦 サイズ問題</button>
-            </div>
+    <div class="card">
+        <div class="title">🎯 特定コード操作</div>
+        <input type="text" id="targetCode" placeholder="追跡番号を入力">
+        <div class="btn-group">
+            <button onclick="sendSingle(2, '輸送中')" style="background:#475569">輸送</button>
+            <button onclick="sendSingle(3, '配達店到着')" style="background:#475569">到着</button>
+            <button onclick="sendSingle(4, '配達中')" style="background:#475569">配達中</button>
+            <button onclick="sendSingle(5, '配達済み')" style="background:#475569">配達済</button>
+            <button onclick="sendSingle(92, '宛先問題')" style="background:#d97706">宛先問題</button>
+            <button onclick="sendSingle(6, '不在')" style="background:#d97706">不在</button>
+            <button onclick="sendSingle(93, 'サイズ問題')" style="background:#d97706">サイズ問題</button>
         </div>
+    </div>
 
-        <!-- 3. 一括操作 -->
-        <div class="card">
-            <div class="card-title">⚡ 一括操作</div>
-            <div class="btn-grid">
-                <button class="btn btn-sub" onclick="sendBulk(2, '輸送中')">🚚 全一括輸送</button>
-                <button class="btn btn-sub" onclick="sendBulk(3, '配達店到着')">🏢 全一括到着</button>
-                <button class="btn btn-sub" onclick="sendBulk(4, '配達中')">🛵 全一括配達中</button>
-                <button class="btn btn-sub" onclick="sendBulk(5, '配達済み')">✅ 全一括配達済</button>
-                <button class="btn btn-warn" onclick="sendBulk(90, '追跡エラー')">⚠️ エラー</button>
-                <button class="btn btn-danger" onclick="sendBulk(91, 'システムダウン')">🚨 ダウン</button>
-            </div>
+    <div class="card">
+        <div class="title">⚡ 一括操作 (絞り込み)</div>
+        <select id="prefixSelect">
+            <option value="AM">AMから始まるコード</option>
+            <option value="JP">JPから始まるコード</option>
+            <option value="LP">LPから始まるコード</option>
+            <option value="CJ">CJから始まるコード</option>
+            <option value="EN">ENから始まるコード</option>
+            <option value="TM">TMから始まるコード</option>
+        </select>
+        <div class="btn-group">
+            <button onclick="sendBulk(2, '輸送中')" style="background:#475569">一括 輸送</button>
+            <button onclick="sendBulk(3, '配達店到着')" style="background:#475569">一括 到着</button>
+            <button onclick="sendBulk(5, '配達済み')" style="background:#059669">一括 配達済</button>
+            <button onclick="sendBulk(91, 'システムダウン')" style="background:#dc2626">一括 ダウン</button>
         </div>
+        <button onclick="clearCColumn()" style="width:100%; background:#94a3b8; margin-top:10px;">C列の内容を全て消去</button>
     </div>
 
     <script>
@@ -72,9 +67,7 @@
                 let enc = data.substring(12);
                 let dec = "";
                 for(let i=0; i<enc.length; i++) dec += String.fromCharCode(enc.charCodeAt(i)-5);
-                let raw = decodeURIComponent(escape(atob(dec)));
-                let m = raw.match(/追跡番号:\s*([A-Z0-9]+)/);
-                return m ? m[1] : null;
+                return decodeURIComponent(escape(atob(dec))); // 中身を全部出す
             } catch(e) { return null; }
         }
 
@@ -82,44 +75,22 @@
             if(isCamOn) { scanner.stop(); isCamOn=false; document.getElementById('camBtn').innerText="カメラ起動"; }
             else { 
                 scanner = new Html5Qrcode("reader");
-                scanner.start({facingMode:"environment"}, {fps:10, qrbox:250}, (txt)=>{
-                    scanner.stop(); isCamOn=false; document.getElementById('camBtn').innerText="カメラ起動";
-                    const code = decodeQR(txt);
-                    if(code) {
-                        document.getElementById('scanResult').innerHTML = 
-                        `<div style="text-align:center;">
-                            <p style="font-weight:bold; margin-bottom:10px;">読取: ${code}</p>
-                            <button class="btn btn-accept" onclick="processReception('${code}')">受付確定（ステータス:1）</button>
-                        </div>`;
-                    } else alert("QRコード読み取りエラー");
+                scanner.start({facingMode:"environment"}, {fps:10, qrbox:200}, (txt)=>{
+                    const decoded = decodeQR(txt);
+                    if(decoded) {
+                        document.getElementById('scanResult').style.display="block";
+                        document.getElementById('scanResult').innerHTML = `確認: ${decoded}<br><button onclick="accept('${decoded.match(/追跡番号:\s*([A-Z0-9]+)/)[1]}')" style="width:100%; margin-top:5px; background:#16a34a;">この内容で確定</button>`;
+                    } else alert("解読失敗！データを確認してください");
                 });
                 isCamOn=true; document.getElementById('camBtn').innerText="カメラ停止";
             }
         }
 
-        // 受付確定用(1)
-        async function processReception(code) {
-            await callGas({action:'scan', code:code}, `伝票 ${code} を受付`);
-            document.getElementById('scanResult').innerHTML = "";
-        }
-
-        async function sendSingle(stat, msg) {
-            const code = document.getElementById('targetCode').value.trim();
-            if(!code) return alert("番号を入力");
-            await callGas({action:'single', code:code, status:stat, message:msg}, `${code} を ${msg} に変更`);
-        }
-
-        async function sendBulk(stat, msg) {
-            if(!confirm(`全てを「${msg}」にしますか？`)) return;
-            await callGas({action:'bulk_all', status:stat, message:msg}, `一括 ${msg} 更新`);
-        }
-
-        async function callGas(payload, label) {
-            try {
-                await fetch(GAS_URL, {method:"POST", mode:"no-cors", body:JSON.stringify(payload)});
-                alert(label + " 完了！");
-            } catch(e) { alert("失敗"); }
-        }
+        async function accept(code) { await callGas({action:'scan', code:code}, `受付:${code}`); }
+        async function sendSingle(stat, msg) { const c = document.getElementById('targetCode').value; if(!c) return alert("番号入力して"); await callGas({action:'single', code:c, status:stat, message:msg}, "更新"); }
+        async function sendBulk(stat, msg) { const p = document.getElementById('prefixSelect').value; if(!confirm(p+"を"+msg+"にしますか？")) return; await callGas({action:'bulk_update', prefix:p, status:stat, message:msg}, "一括更新"); }
+        async function clearCColumn() { if(!confirm("C列全消去します。本当？")) return; await callGas({action:'clear_c_column'}, "消去"); }
+        async function callGas(payload, label) { try { await fetch(GAS_URL, {method:"POST", mode:"no-cors", body:JSON.stringify(payload)}); alert(label + "成功"); } catch(e) { alert("失敗"); } }
     </script>
 </body>
 </html>
